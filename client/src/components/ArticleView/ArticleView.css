@@ -1,0 +1,16 @@
+.card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.article-title {
+    margin: 0 0 8px 0;
+    font-size: 20px;
+}
+
+.error-text {
+    color: crimson;
+}
+

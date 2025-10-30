@@ -1,0 +1,79 @@
+.list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.list li {
+    padding: 8px;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.list li.active,
+.list li:hover {
+    background: #eff6ff;
+}
+
+.list-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.list-row-main {
+    flex: 1;
+    cursor: pointer;
+}
+
+.list-row-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.list-row-meta {
+    color: #6b7280;
+}
+
+/* Clamp long titles in list to ~20 characters with ellipsis */
+.title-ellipsize {
+    display: inline-block;
+    max-width: 10ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+}
+
+.card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.actions-menu {
+    position: relative;
+}
+
+.actions-menu-panel {
+    position: absolute;
+    right: 0;
+    top: 110%;
+    width: 160px;
+    padding: 6px;
+    z-index: 100;
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -4px rgba(0,0,0,0.1);
+}
+
+.menu-grid {
+    display: grid;
+    gap: 4px;
+}
+
+

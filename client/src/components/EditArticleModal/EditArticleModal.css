@@ -1,0 +1,70 @@
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 12px;
+}
+
+.modal-card {
+    width: 800px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow: auto;
+}
+
+.header-title {
+    margin: 0;
+}
+
+.form-grid {
+    display: grid;
+    gap: 8px;
+}
+
+.field-label {
+    margin-bottom: 4px;
+    display: block;
+}
+
+.input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+}
+
+.error-text {
+    color: crimson;
+}
+
+.quill {
+    height: 260px;
+    margin-bottom: 10px;
+}
+
+.quill .ql-container {
+    height: 210px !important;
+    overflow: visible;
+}
+
+.quill .ql-editor {
+    min-height: 180px;
+}
+
+.quill .ql-tooltip {
+    left: 0 !important;
+    right: auto !important;
+    transform: translateX(0) !important;
+    z-index: 2000;
+}
+

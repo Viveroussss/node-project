@@ -1,0 +1,13 @@
+{
+  "name": "articles-workspace",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "concurrently \"npm:dev --prefix server\" \"npm:dev --prefix client\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+}
+
+
