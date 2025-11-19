@@ -33,6 +33,23 @@ export default function ArticleView({ id, totalCount = 0 }) {
 		return () => { ignore = true; };
 	}, [id]);
 
+	const handleAttachmentClick = (attachment) => {
+		const url = `/api/attachments/${attachment.filename}`;
+		if (attachment.mimetype.startsWith('image/')) {
+			window.open(url, '_blank');
+		} else if (attachment.mimetype === 'application/pdf') {
+			window.open(url, '_blank');
+		} else {
+			window.open(url, '_blank');
+		}
+	};
+
+	const formatFileSize = (bytes) => {
+		if (bytes < 1024) return bytes + ' B';
+		if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+		return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+	};
+
 	return (
 		<div className="card">
 			{!id && (totalCount === 0 ? (
@@ -44,6 +61,26 @@ export default function ArticleView({ id, totalCount = 0 }) {
             {error && <div className="error-text">{error}</div>}
             {id && article && (
 				<div>
+					{article.attachments && article.attachments.length > 0 && (
+						<div className="attachments-section">
+							<div className="attachments-header">
+								<strong>Attachments ({article.attachments.length})</strong>
+							</div>
+							<div className="attachments-list">
+								{article.attachments.map((att) => (
+									<div key={att.id} className="attachment-item" onClick={() => handleAttachmentClick(att)}>
+										<div className="attachment-icon">
+											{att.mimetype.startsWith('image/') ? '🖼️' : '📄'}
+										</div>
+										<div className="attachment-info">
+											<div className="attachment-name">{att.originalName}</div>
+											<div className="attachment-meta">{formatFileSize(att.size)}</div>
+										</div>
+									</div>
+								))}
+							</div>
+						</div>
+					)}
 					<h3 className="article-title">{article.title}</h3>
 					<div dangerouslySetInnerHTML={{ __html: article.content }} />
 				</div>
