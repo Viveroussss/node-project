@@ -18,11 +18,11 @@ const server = createServer(app);
 const PORT = process.env.PORT || 3001;
 
 const dataDir = path.join(__dirname, '..', 'data');
-const attachmentsDir = path.join(__dirname, '..', 'attachments');
+const attachmentsDir = path.join(__dirname, '..', '..', 'attachments_storage');
 
 const requireC = createRequire(import.meta.url);
 const db = requireC(path.join(__dirname, '..', 'models', 'index.cjs'));
-const { sequelize, Article } = db;
+const { sequelize, Article, Attachment } = db;
 
 function ensureDataDir() {
 	if (!fs.existsSync(dataDir)) {
@@ -70,19 +70,21 @@ function readArticleById(id) {
 				return article;
 			}
 			const obj = row.toJSON();
-			const filePath = getArticleFilePath(id);
-			if (fs.existsSync(filePath)) {
-				try {
-					const raw = fs.readFileSync(filePath, 'utf-8');
-					const json = JSON.parse(raw);
-					obj.attachments = json.attachments || [];
-				} catch {
-					obj.attachments = [];
-				}
-			} else {
+			return Attachment.findAll({ where: { articleId: id } }).then(atts => {
+				obj.attachments = atts.map(a => ({
+					id: a.id,
+					filename: a.filename,
+					originalName: a.originalName,
+					mimetype: a.mimetype,
+					size: a.size,
+					uploadedAt: a.uploadedAt,
+					path: a.path
+				}));
+				return obj;
+			}).catch(() => {
 				obj.attachments = [];
-			}
-			return obj;
+				return obj;
+			});
 		});
 }
 
@@ -90,13 +92,7 @@ function saveArticle({ title, content, attachments = [] }) {
 	return Article.create({ id: nanoid(12), title, content })
 		.then(created => {
 			const obj = created.toJSON();
-			if (attachments && attachments.length > 0) {
-				const fileArticle = { id: obj.id, title: obj.title, content: obj.content, createdAt: obj.createdAt, attachments };
-				fs.writeFileSync(getArticleFilePath(obj.id), JSON.stringify(fileArticle, null, 2), 'utf-8');
-				obj.attachments = attachments;
-			} else {
-				obj.attachments = [];
-			}
+			obj.attachments = [];
 			return obj;
 		});
 }
@@ -106,29 +102,47 @@ function updateArticle(id, { title, content, attachments }) {
 		if (!row) return null;
 		return row.update({ title, content }).then(updatedRow => {
 			const obj = updatedRow.toJSON();
-			const filePath = getArticleFilePath(id);
-			let fileArticle = { id: obj.id, title: obj.title, content: obj.content, createdAt: obj.createdAt, attachments: [] };
-			if (fs.existsSync(filePath)) {
-				try { fileArticle = JSON.parse(fs.readFileSync(filePath, 'utf-8')); } catch {}
-			}
-			fileArticle.title = obj.title;
-			fileArticle.content = obj.content;
-			if (attachments !== undefined) fileArticle.attachments = attachments;
-			fs.writeFileSync(filePath, JSON.stringify(fileArticle, null, 2), 'utf-8');
-			obj.attachments = fileArticle.attachments || [];
-			return obj;
+			return Attachment.findAll({ where: { articleId: id } }).then(atts => {
+				obj.attachments = atts.map(a => ({
+					id: a.id,
+					filename: a.filename,
+					originalName: a.originalName,
+					mimetype: a.mimetype,
+					size: a.size,
+					uploadedAt: a.uploadedAt,
+					path: a.path
+				}));
+				return obj;
+			}).catch(() => {
+				obj.attachments = [];
+				return obj;
+			});
 		});
 	});
 }
 
 function deleteArticle(id) {
-	return Article.findByPk(id).then(row => {
+	return Article.findByPk(id).then(async row => {
 		if (!row) return false;
-		return row.destroy().then(() => {
-			const filePath = getArticleFilePath(id);
-			if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-			return true;
-		});
+		try {
+			const atts = await Attachment.findAll({ where: { articleId: id } });
+			for (const a of atts) {
+				try {
+					const filePath = path.join(__dirname, '..', '..', a.path || `attachments_storage/${a.filename}`);
+					if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+				} catch (err) {
+					// ignore
+				}
+			}
+			await Attachment.destroy({ where: { articleId: id } });
+		} catch (err) {
+			// ignore attachment cleanup errors
+		}
+
+		await row.destroy();
+		const filePath = getArticleFilePath(id);
+		if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+		return true;
 	});
 }
 
@@ -305,32 +319,37 @@ app.post('/api/articles/:id/attachments', upload.array('files', 10), async (req,
 			return res.status(400).json({ error: 'No files uploaded' });
 		}
 
-		const newAttachments = req.files.map(file => ({
-			id: nanoid(12),
-			filename: file.filename,
-			originalName: file.originalname,
-			mimetype: file.mimetype,
-			size: file.size,
-			uploadedAt: new Date().toISOString()
-		}));
+			const createdAttachments = [];
+			for (const file of req.files) {
+				try {
+					const att = await Attachment.create({
+						id: nanoid(12),
+						articleId: req.params.id,
+						filename: file.filename,
+						originalName: file.originalname,
+						mimetype: file.mimetype,
+						size: file.size,
+						path: `attachments_storage/${file.filename}`,
+						uploadedAt: new Date().toISOString()
+					});
+					createdAttachments.push(att.toJSON());
+				} catch (err) {
+					console.error('Failed to save attachment to DB:', err && err.message);
+				}
+			}
 
-		const existingAttachments = article.attachments || [];
-		const updatedAttachments = [...existingAttachments, ...newAttachments];
-		const updated = await updateArticle(req.params.id, {
-			title: article.title,
-			content: article.content,
-			attachments: updatedAttachments
-		});
+			const updatedList = await Attachment.findAll({ where: { articleId: req.params.id } });
+			const updated = await Article.findByPk(req.params.id);
 
-		broadcastNotification({
-			type: 'attachment_added',
-			articleId: article.id,
-			title: article.title,
-			attachments: newAttachments,
-			message: `${newAttachments.length} file(s) attached to "${article.title}"`
-		});
+			broadcastNotification({
+				type: 'attachment_added',
+				articleId: req.params.id,
+				title: updated ? updated.title : article.title,
+				attachments: createdAttachments,
+				message: `${createdAttachments.length} file(s) attached to "${updated ? updated.title : article.title}"`
+			});
 
-		res.status(201).json({ attachments: newAttachments, article: updated });
+			res.status(201).json({ attachments: updatedList.map(a => a.toJSON()), article: updated });
 	} catch (err) {
 		if (req.files) {
 			req.files.forEach(file => {
@@ -352,26 +371,19 @@ app.post('/api/articles/:id/attachments', upload.array('files', 10), async (req,
 
 app.delete('/api/articles/:id/attachments/:attachmentId', async (req, res) => {
 	try {
-		const article = await readArticleById(req.params.id);
-		if (!article) return res.status(404).json({ error: 'Article not found' });
-
-		const attachments = article.attachments || [];
-		const attachment = attachments.find(a => a.id === req.params.attachmentId);
-		if (!attachment) return res.status(404).json({ error: 'Attachment not found' });
-
-		const filePath = path.join(attachmentsDir, attachment.filename);
-		if (fs.existsSync(filePath)) {
-			fs.unlinkSync(filePath);
+		const att = await Attachment.findByPk(req.params.attachmentId);
+		if (!att || att.articleId !== req.params.id) return res.status(404).json({ error: 'Attachment not found' });
+		try {
+			const filePath = path.join(__dirname, '..', '..', att.path || `attachments_storage/${att.filename}`);
+			if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+		} catch (err) {
+			// ignore file removal errors
 		}
+		await Attachment.destroy({ where: { id: req.params.attachmentId } });
 
-		const updatedAttachments = attachments.filter(a => a.id !== req.params.attachmentId);
-		const updated = await updateArticle(req.params.id, {
-			title: article.title,
-			content: article.content,
-			attachments: updatedAttachments
-		});
-
-		res.json({ success: true, article: updated });
+		const updated = await Article.findByPk(req.params.id);
+		const updatedAttachments = await Attachment.findAll({ where: { articleId: req.params.id } });
+		res.json({ success: true, article: updated, attachments: updatedAttachments.map(a => a.toJSON()) });
 	} catch (err) {
 		res.status(500).json({ error: 'Failed to delete attachment' });
 	}

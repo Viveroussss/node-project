@@ -19,5 +19,9 @@ module.exports = (sequelize, DataTypes) => {
     timestamps: true
   });
 
+  Article.associate = (models) => {
+    Article.hasMany(models.Attachment, { foreignKey: 'articleId' });
+  };
+
   return Article;
 };
