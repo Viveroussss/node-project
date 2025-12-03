@@ -8,6 +8,8 @@ import Button from './components/Button/@Button.jsx';
 
 export default function App() {
 	const [articles, setArticles] = useState([]);
+	const [workspaces, setWorkspaces] = useState([]);
+	const [selectedWorkspaceId, setSelectedWorkspaceId] = useState(null);
 	const [selectedId, setSelectedId] = useState(null);
 	const [loadingList, setLoadingList] = useState(false);
 	const [error, setError] = useState('');
@@ -17,11 +19,28 @@ export default function App() {
 	const [articleRefreshKey, setArticleRefreshKey] = useState(0);
 	const wsRef = useRef(null);
 
-async function refreshList() {
+	async function refreshWorkspaces() {
+		try {
+			const res = await fetch('/api/workspaces');
+			if (!res.ok) throw new Error('Failed to fetch workspaces');
+			const data = await res.json();
+			setWorkspaces(data);
+			if (data.length && !selectedWorkspaceId) {
+				setSelectedWorkspaceId(data[0].id);
+			}
+		} catch (e) {
+			console.error('Failed to load workspaces:', e);
+		}
+	}
+
+	async function refreshList() {
 		setLoadingList(true);
 		setError('');
 		try {
-			const res = await fetch('/api/articles');
+			const url = selectedWorkspaceId 
+				? `/api/articles?workspaceId=${selectedWorkspaceId}`
+				: '/api/articles';
+			const res = await fetch(url);
 			if (!res.ok) throw new Error('Failed to fetch');
 			const data = await res.json();
 			setArticles(data);
@@ -39,8 +58,12 @@ async function refreshList() {
 	}
 
 	useEffect(() => {
-		refreshList();
+		refreshWorkspaces();
 	}, []);
+
+	useEffect(() => {
+		refreshList();
+	}, [selectedWorkspaceId]);
 
 	useEffect(() => {
 		const wsUrl = process.env.NODE_ENV === 'production' 
@@ -162,6 +185,22 @@ async function refreshList() {
 				<div className="layout">
 					<div className="card">
 						<div className="section-header">
+							<strong>Workspaces</strong>
+						</div>
+						<div style={{ marginBottom: '12px' }}>
+							<select 
+								className="input"
+								value={selectedWorkspaceId || ''}
+								onChange={(e) => setSelectedWorkspaceId(e.target.value || null)}
+								style={{ width: '100%', marginBottom: '8px' }}
+							>
+								<option value="">All Workspaces</option>
+								{workspaces.map(ws => (
+									<option key={ws.id} value={ws.id}>{ws.name}</option>
+								))}
+							</select>
+						</div>
+						<div className="section-header">
 							<strong>My Articles</strong>
 						</div>
 						<div style={{ marginBottom: '12px' }}>
@@ -185,6 +224,8 @@ async function refreshList() {
 			{showNewArticleForm && (
 				<NewArticleForm
 					key={showNewArticleForm ? 'new-article-form' : undefined}
+					workspaces={workspaces}
+					selectedWorkspaceId={selectedWorkspaceId}
 					onClose={() => setShowNewArticleForm(false)}
 					onCreated={(a) => {
 						setSelectedId(a.id);
@@ -196,6 +237,7 @@ async function refreshList() {
 			{editingArticle && (
 				<EditArticleModal
 					article={editingArticle}
+					workspaces={workspaces}
 					onClose={() => setEditingArticle(null)}
 					onSaved={handleSaved}
 				/>

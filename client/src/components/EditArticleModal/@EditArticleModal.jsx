@@ -14,9 +14,10 @@ function isHtmlEffectivelyEmpty(html) {
 	return text.length === 0;
 }
 
-export default function EditArticleModal({ article, onClose, onSaved }) {
+export default function EditArticleModal({ article, onClose, onSaved, workspaces = [] }) {
 	const [title, setTitle] = useState(article?.title ?? '');
 	const [content, setContent] = useState(article?.content ?? '');
+	const [workspaceId, setWorkspaceId] = useState(article?.workspaceId ?? null);
 	const [attachments, setAttachments] = useState(article?.attachments ?? []);
 	const [saving, setSaving] = useState(false);
 	const [uploading, setUploading] = useState(false);
@@ -27,6 +28,7 @@ export default function EditArticleModal({ article, onClose, onSaved }) {
 	useEffect(() => {
 		setTitle(article?.title ?? '');
 		setContent(article?.content ?? '');
+		setWorkspaceId(article?.workspaceId ?? null);
 		setAttachments(article?.attachments ?? []);
 	}, [article]);
 
@@ -109,7 +111,7 @@ export default function EditArticleModal({ article, onClose, onSaved }) {
 			const res = await fetch(`/api/articles/${article.id}`, {
 				method: 'PUT',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ title: title.trim(), content, attachments })
+				body: JSON.stringify({ title: title.trim(), content, workspaceId: workspaceId || null, attachments })
 			});
 			if (!res.ok) {
 				const msg = await res.json().catch(() => ({}));
@@ -136,6 +138,21 @@ export default function EditArticleModal({ article, onClose, onSaved }) {
 						<input className="input" value={title} onChange={(e) => setTitle(e.target.value)} />
 					</label>
 					{titleError && <div className="error-text">{titleError}</div>}
+					{workspaces.length > 0 && (
+						<label>
+							<span className="field-label">Workspace</span>
+							<select
+								className="input"
+								value={workspaceId || ''}
+								onChange={(e) => setWorkspaceId(e.target.value || null)}
+							>
+								<option value="">No Workspace</option>
+								{workspaces.map(ws => (
+									<option key={ws.id} value={ws.id}>{ws.name}</option>
+								))}
+							</select>
+						</label>
+					)}
                     <div>
                         <span className="field-label">Content</span>
                         <ReactQuill

@@ -8,8 +8,9 @@
     "start": "node src/index.js",
     "dev": "nodemon --watch src --ext js src/index.js",
     "db:migrate": "npx sequelize-cli db:migrate --config ./config/config.cjs",
-    "db:migrate:undo": "npx sequelize-cli db:migrate:undo --config ./config/config.cjs"
-    ,"db:import": "node scripts/import-json-to-db.cjs"
+    "db:migrate:undo": "npx sequelize-cli db:migrate:undo --config ./config/config.cjs",
+    "db:seed": "node scripts/seed-workspaces.cjs",
+    "db:import": "node scripts/import-json-to-db.cjs"
   },
   "dependencies": {
     "pg": "^8.11.0",

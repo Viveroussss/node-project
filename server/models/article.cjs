@@ -13,6 +13,10 @@ module.exports = (sequelize, DataTypes) => {
     content: {
       type: DataTypes.TEXT,
       allowNull: false
+    },
+    workspaceId: {
+      type: DataTypes.STRING,
+      allowNull: true
     }
   }, {
     tableName: 'articles',
@@ -21,6 +25,8 @@ module.exports = (sequelize, DataTypes) => {
 
   Article.associate = (models) => {
     Article.hasMany(models.Attachment, { foreignKey: 'articleId' });
+    Article.hasMany(models.Comment, { foreignKey: 'articleId' });
+    Article.belongsTo(models.Workspace, { foreignKey: 'workspaceId', targetKey: 'id' });
   };
 
   return Article;

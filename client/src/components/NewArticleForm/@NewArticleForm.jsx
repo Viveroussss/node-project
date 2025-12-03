@@ -14,9 +14,10 @@ function isHtmlEffectivelyEmpty(html) {
 	return text.length === 0;
 }
 
-export default function NewArticleForm({ onCreated, onClose }) {
+export default function NewArticleForm({ onCreated, onClose, workspaces = [], selectedWorkspaceId = null }) {
 	const [title, setTitle] = useState('');
 	const [content, setContent] = useState('');
+	const [workspaceId, setWorkspaceId] = useState(selectedWorkspaceId);
 	const [pendingFiles, setPendingFiles] = useState([]);
 	const [submitting, setSubmitting] = useState(false);
 	const [uploading, setUploading] = useState(false);
@@ -104,7 +105,7 @@ export default function NewArticleForm({ onCreated, onClose }) {
 		}
 		setSubmitting(true);
 		try {
-			const payload = { title: title.trim(), content };
+			const payload = { title: title.trim(), content, workspaceId: workspaceId || null };
 			const res = await fetch('/api/articles', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -181,6 +182,21 @@ export default function NewArticleForm({ onCreated, onClose }) {
 						</label>
 						{(titleTouched || submitAttempted) && titleError && (
 							<div className="error-text">{titleError}</div>
+						)}
+						{workspaces.length > 0 && (
+							<label>
+								<span className="field-label">Workspace</span>
+								<select
+									className="input"
+									value={workspaceId || ''}
+									onChange={(e) => setWorkspaceId(e.target.value || null)}
+								>
+									<option value="">No Workspace</option>
+									{workspaces.map(ws => (
+										<option key={ws.id} value={ws.id}>{ws.name}</option>
+									))}
+								</select>
+							</label>
 						)}
 						<div>
 							<span className="field-label">Content</span>
