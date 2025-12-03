@@ -1,8 +1,25 @@
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
 .card {
     background: white;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     padding: 12px;
+}
+
+.modal-card {
+    width: 800px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow: auto;
 }
 
 .header-title {
@@ -53,6 +70,83 @@
     right: auto !important;
     transform: translateX(0) !important;
     z-index: 2000;
+}
+
+.attachments-upload-section {
+    margin-top: 8px;
+}
+
+.file-upload-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.file-upload-button {
+    display: inline-block;
+    background: #6b7280;
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-family: inherit;
+}
+
+.file-upload-button:hover:not(:disabled) {
+    background: #4b5563;
+}
+
+.file-upload-button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.file-upload-hint {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.attachments-list-edit {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.attachment-item-edit {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+}
+
+.attachment-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.attachment-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.attachment-name {
+    font-size: 14px;
+    color: #111827;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.attachment-meta {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
 }
 
 

@@ -5,18 +5,26 @@ import { nanoid } from 'nanoid';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import multer from 'multer';
+import { WebSocketServer } from 'ws';
+import { createServer } from 'http';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+const server = createServer(app);
 const PORT = process.env.PORT || 3001;
 
 const dataDir = path.join(__dirname, '..', 'data');
+const attachmentsDir = path.join(__dirname, '..', 'attachments');
 
 function ensureDataDir() {
 	if (!fs.existsSync(dataDir)) {
 		fs.mkdirSync(dataDir, { recursive: true });
+	}
+	if (!fs.existsSync(attachmentsDir)) {
+		fs.mkdirSync(attachmentsDir, { recursive: true });
 	}
 }
 
@@ -46,21 +54,30 @@ function readArticleById(id) {
 	const filePath = getArticleFilePath(id);
 	if (!fs.existsSync(filePath)) return null;
 	const raw = fs.readFileSync(filePath, 'utf-8');
-	return JSON.parse(raw);
+	const article = JSON.parse(raw);
+	if (!article.attachments) {
+		article.attachments = [];
+	}
+	return article;
 }
 
-function saveArticle({ title, content }) {
+function saveArticle({ title, content, attachments = [] }) {
 	const id = nanoid(12);
 	const now = new Date().toISOString();
-	const article = { id, title, content, createdAt: now };
+	const article = { id, title, content, createdAt: now, attachments: attachments || [] };
 	fs.writeFileSync(getArticleFilePath(id), JSON.stringify(article, null, 2), 'utf-8');
 	return article;
 }
 
-function updateArticle(id, { title, content }) {
+function updateArticle(id, { title, content, attachments }) {
 	const existing = readArticleById(id);
 	if (!existing) return null;
-	const updated = { ...existing, title, content };
+	const updated = { 
+		...existing, 
+		title, 
+		content,
+		attachments: attachments !== undefined ? attachments : existing.attachments || []
+	};
 	fs.writeFileSync(getArticleFilePath(id), JSON.stringify(updated, null, 2), 'utf-8');
 	return updated;
 }
@@ -83,9 +100,58 @@ function isHtmlEffectivelyEmpty(html) {
 	return text.length === 0;
 }
 
+const storage = multer.diskStorage({
+	destination: (req, file, cb) => {
+		ensureDataDir();
+		cb(null, attachmentsDir);
+	},
+	filename: (req, file, cb) => {
+		const uniqueName = `${nanoid(12)}-${file.originalname}`;
+		cb(null, uniqueName);
+	}
+});
+
+const fileFilter = (req, file, cb) => {
+	const allowedMimes = [
+		'image/jpeg',
+		'image/jpg',
+		'image/png',
+		'image/gif',
+		'image/webp',
+		'application/pdf'
+	];
+	if (allowedMimes.includes(file.mimetype)) {
+		cb(null, true);
+	} else {
+		cb(new Error('Only images (JPG, PNG, GIF, WEBP) and PDF files are allowed'), false);
+	}
+};
+
+const upload = multer({
+	storage,
+	fileFilter,
+	limits: { fileSize: 10 * 1024 * 1024 }
+});
+
+const wss = new WebSocketServer({ server });
+
+const broadcastNotification = (message) => {
+	const data = JSON.stringify(message);
+	wss.clients.forEach((client) => {
+		if (client.readyState === 1) {
+			client.send(data);
+		}
+	});
+};
+
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 app.use(morgan('dev'));
+app.use('/api/attachments', express.static(attachmentsDir));
+
+app.get('/health', (_req, res) => {
+	res.json({ ok: true });
+});
 
 app.get('/api/health', (_req, res) => {
 	res.json({ ok: true });
@@ -120,7 +186,13 @@ app.post('/api/articles', (req, res) => {
 	}
 	try {
 		ensureDataDir();
-		const created = saveArticle({ title: title.trim(), content });
+		const created = saveArticle({ title: title.trim(), content, attachments: [] });
+		broadcastNotification({
+			type: 'article_created',
+			articleId: created.id,
+			title: created.title,
+			message: `New article "${created.title}" was created`
+		});
 		res.status(201).json(created);
 	} catch (err) {
 		res.status(500).json({ error: 'Failed to save article' });
@@ -128,7 +200,7 @@ app.post('/api/articles', (req, res) => {
 });
 
 app.put('/api/articles/:id', (req, res) => {
-	const { title, content } = req.body ?? {};
+	const { title, content, attachments } = req.body ?? {};
 	if (typeof title !== 'string' || title.trim().length === 0) {
 		return res.status(400).json({ error: 'Title is required' });
 	}
@@ -136,8 +208,18 @@ app.put('/api/articles/:id', (req, res) => {
 		return res.status(400).json({ error: 'Content is required' });
 	}
 	try {
-		const updated = updateArticle(req.params.id, { title: title.trim(), content });
+		const updated = updateArticle(req.params.id, { 
+			title: title.trim(), 
+			content,
+			attachments: attachments || []
+		});
 		if (!updated) return res.status(404).json({ error: 'Not found' });
+		broadcastNotification({
+			type: 'article_updated',
+			articleId: updated.id,
+			title: updated.title,
+			message: `Article "${updated.title}" was updated`
+		});
 		res.json(updated);
 	} catch (err) {
 		res.status(500).json({ error: 'Failed to update article' });
@@ -146,15 +228,113 @@ app.put('/api/articles/:id', (req, res) => {
 
 app.delete('/api/articles/:id', (req, res) => {
 	try {
+		const article = readArticleById(req.params.id);
 		const ok = deleteArticle(req.params.id);
 		if (!ok) return res.status(404).json({ error: 'Not found' });
+		if (article && article.attachments) {
+			article.attachments.forEach(att => {
+				const filePath = path.join(attachmentsDir, att.filename);
+				if (fs.existsSync(filePath)) {
+					fs.unlinkSync(filePath);
+				}
+			});
+		}
 		res.status(204).send();
 	} catch (err) {
 		res.status(500).json({ error: 'Failed to delete article' });
 	}
 });
 
-app.listen(PORT, () => {
+app.post('/api/articles/:id/attachments', upload.array('files', 10), (req, res) => {
+	try {
+		const article = readArticleById(req.params.id);
+		if (!article) {
+			if (req.files) {
+				req.files.forEach(file => {
+					fs.unlinkSync(file.path);
+				});
+			}
+			return res.status(404).json({ error: 'Article not found' });
+		}
+
+		if (!req.files || req.files.length === 0) {
+			return res.status(400).json({ error: 'No files uploaded' });
+		}
+
+		const newAttachments = req.files.map(file => ({
+			id: nanoid(12),
+			filename: file.filename,
+			originalName: file.originalname,
+			mimetype: file.mimetype,
+			size: file.size,
+			uploadedAt: new Date().toISOString()
+		}));
+
+		const existingAttachments = article.attachments || [];
+		const updatedAttachments = [...existingAttachments, ...newAttachments];
+		const updated = updateArticle(req.params.id, {
+			title: article.title,
+			content: article.content,
+			attachments: updatedAttachments
+		});
+
+		broadcastNotification({
+			type: 'attachment_added',
+			articleId: article.id,
+			title: article.title,
+			attachments: newAttachments,
+			message: `${newAttachments.length} file(s) attached to "${article.title}"`
+		});
+
+		res.status(201).json({ attachments: newAttachments, article: updated });
+	} catch (err) {
+		if (req.files) {
+			req.files.forEach(file => {
+				if (fs.existsSync(file.path)) {
+					fs.unlinkSync(file.path);
+				}
+			});
+		}
+		if (err.message.includes('Only images')) {
+			return res.status(400).json({ error: err.message });
+		}
+		if (err.code === 'LIMIT_FILE_SIZE') {
+			return res.status(400).json({ error: 'File size limit is 10MB. One or more files are too large.' });
+		}
+		console.error('File upload error:', err);
+		res.status(500).json({ error: 'Failed to upload files. Please try again.' });
+	}
+});
+
+app.delete('/api/articles/:id/attachments/:attachmentId', (req, res) => {
+	try {
+		const article = readArticleById(req.params.id);
+		if (!article) return res.status(404).json({ error: 'Article not found' });
+
+		const attachments = article.attachments || [];
+		const attachment = attachments.find(a => a.id === req.params.attachmentId);
+		if (!attachment) return res.status(404).json({ error: 'Attachment not found' });
+
+		const filePath = path.join(attachmentsDir, attachment.filename);
+		if (fs.existsSync(filePath)) {
+			fs.unlinkSync(filePath);
+		}
+
+		const updatedAttachments = attachments.filter(a => a.id !== req.params.attachmentId);
+		const updated = updateArticle(req.params.id, {
+			title: article.title,
+			content: article.content,
+			attachments: updatedAttachments
+		});
+
+		res.json({ success: true, article: updated });
+	} catch (err) {
+		res.status(500).json({ error: 'Failed to delete attachment' });
+	}
+});
+
+server.listen(PORT, () => {
 	ensureDataDir();
 	console.log(`Server listening on http://localhost:${PORT}`);
+	console.log(`WebSocket server ready on ws://localhost:${PORT}`);
 });
