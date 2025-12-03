@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import './ArticleView.css';
 import Button from '../Button/@Button.jsx';
+import Comments from '../Comments/@Comments.jsx';
 
-export default function ArticleView({ id, totalCount = 0 }) {
+export default function ArticleView({ id, totalCount = 0, refreshKey = 0 }) {
 	const [article, setArticle] = useState(null);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState('');
@@ -31,7 +32,7 @@ export default function ArticleView({ id, totalCount = 0 }) {
 		}
 		load();
 		return () => { ignore = true; };
-	}, [id]);
+	}, [id, refreshKey]);
 
 	const handleAttachmentClick = (attachment) => {
 		const url = `/api/attachments/${attachment.filename}`;
@@ -83,6 +84,17 @@ export default function ArticleView({ id, totalCount = 0 }) {
 					)}
 					<h3 className="article-title">{article.title}</h3>
 					<div dangerouslySetInnerHTML={{ __html: article.content }} />
+					
+					<Comments 
+						articleId={id} 
+						comments={article.comments || []}
+						onCommentAdded={() => {
+							fetch(`/api/articles/${id}`)
+								.then(res => res.json())
+								.then(data => setArticle(data))
+								.catch(err => console.error('Failed to refresh comments:', err));
+						}}
+					/>
 				</div>
 			)}
 		</div>

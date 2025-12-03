@@ -22,7 +22,7 @@ const attachmentsDir = path.join(__dirname, '..', '..', 'attachments_storage');
 
 const requireC = createRequire(import.meta.url);
 const db = requireC(path.join(__dirname, '..', 'models', 'index.cjs'));
-const { sequelize, Article, Attachment } = db;
+const { sequelize, Article, Attachment, Comment, Workspace } = db;
 
 function ensureDataDir() {
 	if (!fs.existsSync(dataDir)) {
@@ -37,9 +37,14 @@ function getArticleFilePath(id) {
 	return path.join(dataDir, `${id}.json`);
 }
 
-function readAllArticlesMeta() {
-	return Article.findAll({ attributes: ['id', 'title', 'createdAt'], order: [['createdAt', 'DESC']] })
-		.then(rows => rows.map(r => ({ id: r.id, title: r.title, createdAt: r.createdAt })))
+function readAllArticlesMeta(workspaceId = null) {
+	const where = workspaceId ? { workspaceId } : {};
+	return Article.findAll({ 
+		attributes: ['id', 'title', 'createdAt', 'workspaceId'], 
+		where,
+		order: [['createdAt', 'DESC']] 
+	})
+		.then(rows => rows.map(r => ({ id: r.id, title: r.title, createdAt: r.createdAt, workspaceId: r.workspaceId })))
 		.catch(() => {
 			ensureDataDir();
 			const files = fs.readdirSync(dataDir).filter((f) => f.endsWith('.json'));
@@ -60,64 +65,92 @@ function readAllArticlesMeta() {
 
 function readArticleById(id) {
 	return Article.findByPk(id)
-		.then(row => {
+		.then(async row => {
 			if (!row) {
 				const filePath = getArticleFilePath(id);
 				if (!fs.existsSync(filePath)) return null;
 				const raw = fs.readFileSync(filePath, 'utf-8');
 				const article = JSON.parse(raw);
 				if (!article.attachments) article.attachments = [];
+				if (!article.comments) article.comments = [];
 				return article;
 			}
 			const obj = row.toJSON();
-			return Attachment.findAll({ where: { articleId: id } }).then(atts => {
-				obj.attachments = atts.map(a => ({
-					id: a.id,
-					filename: a.filename,
-					originalName: a.originalName,
-					mimetype: a.mimetype,
-					size: a.size,
-					uploadedAt: a.uploadedAt,
-					path: a.path
-				}));
-				return obj;
-			}).catch(() => {
-				obj.attachments = [];
-				return obj;
-			});
-		});
-}
-
-function saveArticle({ title, content, attachments = [] }) {
-	return Article.create({ id: nanoid(12), title, content })
-		.then(created => {
-			const obj = created.toJSON();
-			obj.attachments = [];
+			
+			const atts = await Attachment.findAll({ where: { articleId: id } }).catch(() => []);
+			obj.attachments = atts.map(a => ({
+				id: a.id,
+				filename: a.filename,
+				originalName: a.originalName,
+				mimetype: a.mimetype,
+				size: a.size,
+				uploadedAt: a.uploadedAt,
+				path: a.path
+			}));
+			
+			const comments = await Comment.findAll({ 
+				where: { articleId: id },
+				order: [['createdAt', 'ASC']]
+			}).catch(() => []);
+			obj.comments = comments.map(c => ({
+				id: c.id,
+				content: c.content,
+				author: c.author,
+				createdAt: c.createdAt,
+				updatedAt: c.updatedAt
+			}));
+			
 			return obj;
 		});
 }
 
-function updateArticle(id, { title, content, attachments }) {
-	return Article.findByPk(id).then(row => {
-		if (!row) return null;
-		return row.update({ title, content }).then(updatedRow => {
-			const obj = updatedRow.toJSON();
-			return Attachment.findAll({ where: { articleId: id } }).then(atts => {
-				obj.attachments = atts.map(a => ({
-					id: a.id,
-					filename: a.filename,
-					originalName: a.originalName,
-					mimetype: a.mimetype,
-					size: a.size,
-					uploadedAt: a.uploadedAt,
-					path: a.path
-				}));
-				return obj;
-			}).catch(() => {
-				obj.attachments = [];
-				return obj;
-			});
+function saveArticle({ title, content, workspaceId = null, attachments = [] }) {
+	return Article.create({ id: nanoid(12), title, content, workspaceId })
+		.then(created => {
+			const obj = created.toJSON();
+			obj.attachments = [];
+			obj.comments = [];
+			return obj;
+		})
+		.catch(err => {
+			console.error('Database error in saveArticle:', err);
+			throw new Error('Database connection failed. Please ensure PostgreSQL is running and migrations have been executed.');
 		});
+}
+
+function updateArticle(id, { title, content, workspaceId, attachments }) {
+	return Article.findByPk(id).then(async row => {
+		if (!row) return null;
+		const updateData = { title, content };
+		if (workspaceId !== undefined) updateData.workspaceId = workspaceId;
+		
+		const updatedRow = await row.update(updateData);
+		const obj = updatedRow.toJSON();
+		
+		const atts = await Attachment.findAll({ where: { articleId: id } }).catch(() => []);
+		obj.attachments = atts.map(a => ({
+			id: a.id,
+			filename: a.filename,
+			originalName: a.originalName,
+			mimetype: a.mimetype,
+			size: a.size,
+			uploadedAt: a.uploadedAt,
+			path: a.path
+		}));
+		
+		const comments = await Comment.findAll({ 
+			where: { articleId: id },
+			order: [['createdAt', 'ASC']]
+		}).catch(() => []);
+		obj.comments = comments.map(c => ({
+			id: c.id,
+			content: c.content,
+			author: c.author,
+			createdAt: c.createdAt,
+			updatedAt: c.updatedAt
+		}));
+		
+		return obj;
 	});
 }
 
@@ -214,9 +247,10 @@ app.get('/api/health', (_req, res) => {
 	res.json({ ok: true });
 });
 
-app.get('/api/articles', async (_req, res) => {
+app.get('/api/articles', async (req, res) => {
     try {
-        const list = await readAllArticlesMeta();
+        const workspaceId = req.query.workspaceId || null;
+        const list = await readAllArticlesMeta(workspaceId);
         res.json(list);
     } catch (err) {
         res.status(500).json({ error: 'Failed to read articles' });
@@ -234,7 +268,7 @@ app.get('/api/articles/:id', async (req, res) => {
 });
 
 app.post('/api/articles', async (req, res) => {
-    const { title, content } = req.body ?? {};
+    const { title, content, workspaceId } = req.body ?? {};
     if (typeof title !== 'string' || title.trim().length === 0) {
         return res.status(400).json({ error: 'Title is required' });
     }
@@ -243,7 +277,7 @@ app.post('/api/articles', async (req, res) => {
     }
     try {
         ensureDataDir();
-        const created = await saveArticle({ title: title.trim(), content, attachments: [] });
+        const created = await saveArticle({ title: title.trim(), content, workspaceId: workspaceId || null, attachments: [] });
         broadcastNotification({
             type: 'article_created',
             articleId: created.id,
@@ -253,12 +287,15 @@ app.post('/api/articles', async (req, res) => {
         res.status(201).json(created);
 	} catch (err) {
 		console.error('POST /api/articles error:', err);
-		res.status(500).json({ error: 'Failed to save article' });
+		const errorMessage = err.message && err.message.includes('Database connection failed')
+			? err.message
+			: 'Failed to save article. Please check database connection.';
+		res.status(500).json({ error: errorMessage });
 	}
 });
 
 app.put('/api/articles/:id', async (req, res) => {
-    const { title, content, attachments } = req.body ?? {};
+    const { title, content, workspaceId, attachments } = req.body ?? {};
     if (typeof title !== 'string' || title.trim().length === 0) {
         return res.status(400).json({ error: 'Title is required' });
     }
@@ -269,6 +306,7 @@ app.put('/api/articles/:id', async (req, res) => {
         const updated = await updateArticle(req.params.id, {
             title: title.trim(),
             content,
+            workspaceId: workspaceId !== undefined ? workspaceId : null,
             attachments: attachments || []
         });
         if (!updated) return res.status(404).json({ error: 'Not found' });
@@ -386,6 +424,156 @@ app.delete('/api/articles/:id/attachments/:attachmentId', async (req, res) => {
 		res.json({ success: true, article: updated, attachments: updatedAttachments.map(a => a.toJSON()) });
 	} catch (err) {
 		res.status(500).json({ error: 'Failed to delete attachment' });
+	}
+});
+
+app.get('/api/workspaces', async (_req, res) => {
+	try {
+		const workspaces = await Workspace.findAll({ order: [['name', 'ASC']] });
+		res.json(workspaces);
+	} catch (err) {
+		console.error('Error fetching workspaces:', err);
+		if (err.name === 'SequelizeConnectionError' || err.message?.includes('ECONNREFUSED')) {
+			return res.status(503).json({ 
+				error: 'Database not available. Please ensure PostgreSQL is running and migrations have been executed.',
+				details: 'See DATABASE_SETUP.md for setup instructions'
+			});
+		}
+		res.status(500).json({ error: 'Failed to read workspaces' });
+	}
+});
+
+app.get('/api/workspaces/:id', async (req, res) => {
+	try {
+		const workspace = await Workspace.findByPk(req.params.id);
+		if (!workspace) return res.status(404).json({ error: 'Workspace not found' });
+		res.json(workspace);
+	} catch (err) {
+		res.status(500).json({ error: 'Failed to read workspace' });
+	}
+});
+
+app.post('/api/workspaces', async (req, res) => {
+	const { name, description } = req.body ?? {};
+	if (typeof name !== 'string' || name.trim().length === 0) {
+		return res.status(400).json({ error: 'Name is required' });
+	}
+	try {
+		const workspace = await Workspace.create({
+			id: nanoid(12),
+			name: name.trim(),
+			description: description || null
+		});
+		res.status(201).json(workspace);
+	} catch (err) {
+		console.error('Error creating workspace:', err);
+		if (err.name === 'SequelizeConnectionError' || err.message?.includes('ECONNREFUSED')) {
+			return res.status(503).json({ 
+				error: 'Database not available. Please ensure PostgreSQL is running and migrations have been executed.',
+				details: 'See DATABASE_SETUP.md for setup instructions'
+			});
+		}
+		res.status(500).json({ error: 'Failed to create workspace' });
+	}
+});
+
+app.put('/api/workspaces/:id', async (req, res) => {
+	const { name, description } = req.body ?? {};
+	if (typeof name !== 'string' || name.trim().length === 0) {
+		return res.status(400).json({ error: 'Name is required' });
+	}
+	try {
+		const workspace = await Workspace.findByPk(req.params.id);
+		if (!workspace) return res.status(404).json({ error: 'Workspace not found' });
+		await workspace.update({ name: name.trim(), description: description || null });
+		res.json(workspace);
+	} catch (err) {
+		res.status(500).json({ error: 'Failed to update workspace' });
+	}
+});
+
+app.delete('/api/workspaces/:id', async (req, res) => {
+	try {
+		const workspace = await Workspace.findByPk(req.params.id);
+		if (!workspace) return res.status(404).json({ error: 'Workspace not found' });
+		await workspace.destroy();
+		res.status(204).send();
+	} catch (err) {
+		res.status(500).json({ error: 'Failed to delete workspace' });
+	}
+});
+
+app.get('/api/articles/:id/comments', async (req, res) => {
+	try {
+		const comments = await Comment.findAll({
+			where: { articleId: req.params.id },
+			order: [['createdAt', 'ASC']]
+		});
+		res.json(comments);
+	} catch (err) {
+		res.status(500).json({ error: 'Failed to read comments' });
+	}
+});
+
+app.post('/api/articles/:id/comments', async (req, res) => {
+	const { content, author } = req.body ?? {};
+	if (typeof content !== 'string' || content.trim().length === 0) {
+		return res.status(400).json({ error: 'Content is required' });
+	}
+	try {
+		const article = await Article.findByPk(req.params.id);
+		if (!article) return res.status(404).json({ error: 'Article not found' });
+		
+		const comment = await Comment.create({
+			id: nanoid(12),
+			articleId: req.params.id,
+			content: content.trim(),
+			author: author && typeof author === 'string' ? author.trim() : 'Anonymous'
+		});
+		
+		broadcastNotification({
+			type: 'comment_added',
+			articleId: article.id,
+			title: article.title,
+			message: `New comment added to "${article.title}"`
+		});
+		
+		res.status(201).json(comment);
+	} catch (err) {
+		console.error('Error creating comment:', err);
+		if (err.name === 'SequelizeConnectionError' || err.message?.includes('ECONNREFUSED')) {
+			return res.status(503).json({ 
+				error: 'Database not available. Please ensure PostgreSQL is running and migrations have been executed.',
+				details: 'See DATABASE_SETUP.md for setup instructions'
+			});
+		}
+		res.status(500).json({ error: 'Failed to create comment' });
+	}
+});
+
+app.put('/api/comments/:id', async (req, res) => {
+	const { content } = req.body ?? {};
+	if (typeof content !== 'string' || content.trim().length === 0) {
+		return res.status(400).json({ error: 'Content is required' });
+	}
+	try {
+		const comment = await Comment.findByPk(req.params.id);
+		if (!comment) return res.status(404).json({ error: 'Comment not found' });
+		await comment.update({ content: content.trim() });
+		res.json(comment);
+	} catch (err) {
+		res.status(500).json({ error: 'Failed to update comment' });
+	}
+});
+
+app.delete('/api/comments/:id', async (req, res) => {
+	try {
+		const comment = await Comment.findByPk(req.params.id);
+		if (!comment) return res.status(404).json({ error: 'Comment not found' });
+		await comment.destroy();
+		res.status(204).send();
+	} catch (err) {
+		res.status(500).json({ error: 'Failed to delete comment' });
 	}
 });
 
