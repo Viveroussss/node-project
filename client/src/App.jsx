@@ -33,7 +33,7 @@ export default function App() {
 		}
 	}
 
-	async function refreshList() {
+async function refreshList() {
 		setLoadingList(true);
 		setError('');
 		try {
