@@ -52,12 +52,12 @@ npm run db:migrate
 ```
 
 **Important:** Migrations run in alphabetical order. The migrations are named to ensure proper execution order:
-1. `20251126-create-articles.cjs` - Creates articles table
-2. `20251126-001-create-workspaces.cjs` - Creates workspaces table
-3. `20251126-003-add-workspace-to-articles.cjs` - Adds workspaceId to articles
-4. `20251126-004-create-comments.cjs` - Creates comments table
-5. `20251126-create-attachments.cjs` - Creates attachments table (if exists)
-6. `20251126-change-articles-id-to-string.cjs` - Changes article ID type (if exists)
+1. `20251126-001-create-workspaces.cjs` - Creates workspaces table
+2. `20251126-002-create-articles.cjs` - Creates articles table
+3. `20251126-003-change-articles-id-to-string.cjs` - Changes article ID type (if needed)
+4. `20251126-004-add-workspace-to-articles.cjs` - Adds workspaceId foreign key to articles
+5. `20251126-005-create-attachments.cjs` - Creates attachments table
+6. `20251126-006-create-comments.cjs` - Creates comments table
 
 This will create the following tables:
 - `workspaces` - Workspace management

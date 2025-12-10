@@ -71,3 +71,46 @@
     margin-top: 2px;
 }
 
+.version-section {
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.version-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.version-select {
+    padding: 6px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    background: white;
+    cursor: pointer;
+    flex: 1;
+    max-width: 300px;
+}
+
+.version-select:hover {
+    border-color: #9ca3af;
+}
+
+.version-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.version-warning {
+    padding: 10px 12px;
+    background-color: #fef3c7;
+    border: 1px solid #fbbf24;
+    border-radius: 6px;
+    color: #92400e;
+    font-size: 14px;
+    margin-top: 8px;
+}
+
