@@ -151,7 +151,7 @@ export default function NewArticleForm({ onCreated, onClose, workspaces = [], se
 			setSuccess('Article created.');
 			
 			setTimeout(() => {
-				onCreated?.(created);
+			onCreated?.(created);
 				onClose?.();
 			}, 500);
 		} catch (e) {
@@ -165,23 +165,23 @@ export default function NewArticleForm({ onCreated, onClose, workspaces = [], se
     return (
 		<div className="modal-overlay">
 			<div className="card modal-card">
-				<h3 className="header-title">New Article</h3>
-				<form onSubmit={handleSubmit}>
-					<div className="form-grid">
-						<label>
-							<span className="field-label">Title</span>
-							<input
-								type="text"
-								className="input"
-								value={title}
-								onChange={handleTitleChange}
-								onBlur={() => setTitleTouched(true)}
-								placeholder="Enter a title"
-								name="article-title"
-							/>
-						</label>
-						{(titleTouched || submitAttempted) && titleError && (
-							<div className="error-text">{titleError}</div>
+			<h3 className="header-title">New Article</h3>
+			<form onSubmit={handleSubmit}>
+				<div className="form-grid">
+					<label>
+						<span className="field-label">Title</span>
+						<input
+							type="text"
+							className="input"
+							value={title}
+							onChange={handleTitleChange}
+							onBlur={() => setTitleTouched(true)}
+							placeholder="Enter a title"
+							name="article-title"
+						/>
+					</label>
+					{(titleTouched || submitAttempted) && titleError && (
+						<div className="error-text">{titleError}</div>
 						)}
 						{workspaces.length > 0 && (
 							<label>
@@ -197,20 +197,20 @@ export default function NewArticleForm({ onCreated, onClose, workspaces = [], se
 									))}
 								</select>
 							</label>
-						)}
-						<div>
-							<span className="field-label">Content</span>
-							<ReactQuill
-								className="quill"
-								theme="snow"
-								value={content}
-								onChange={handleContentChange}
-								onBlur={() => setContentTouched(true)}
-							/>
-						</div>
-						{(contentTouched || submitAttempted) && contentError && (
-							<div className="error-text">{contentError}</div>
-						)}
+					)}
+                    <div>
+                        <span className="field-label">Content</span>
+                        <ReactQuill
+                            className="quill"
+                            theme="snow"
+                            value={content}
+                            onChange={handleContentChange}
+                            onBlur={() => setContentTouched(true)}
+                        />
+                    </div>
+					{(contentTouched || submitAttempted) && contentError && (
+						<div className="error-text">{contentError}</div>
+					)}
 						
 						<div>
 							<span className="field-label">Attachments</span>
@@ -263,15 +263,15 @@ export default function NewArticleForm({ onCreated, onClose, workspaces = [], se
 							)}
 						</div>
 
-						{success && <div className="success-text">{success}</div>}
+					{success && <div className="success-text">{success}</div>}
 						<div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
 							<Button variant="secondary" onClick={onClose} type="button">Cancel</Button>
 							<Button type="button" onClick={handleSubmit} disabled={submitting || uploading || !isValid}>
 								{submitting || uploading ? 'Creating…' : 'Create Article'}
-							</Button>
-						</div>
+						</Button>
 					</div>
-				</form>
+				</div>
+			</form>
 			</div>
 		</div>
 	);

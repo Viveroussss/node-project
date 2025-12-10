@@ -3,8 +3,10 @@ import './ArticleView.css';
 import Button from '../Button/@Button.jsx';
 import Comments from '../Comments/@Comments.jsx';
 
-export default function ArticleView({ id, totalCount = 0, refreshKey = 0 }) {
+export default function ArticleView({ id, totalCount = 0, refreshKey = 0, onEdit }) {
 	const [article, setArticle] = useState(null);
+	const [versions, setVersions] = useState([]);
+	const [selectedVersion, setSelectedVersion] = useState(null);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState('');
 
@@ -13,6 +15,8 @@ export default function ArticleView({ id, totalCount = 0, refreshKey = 0 }) {
 		async function load() {
             if (!id) {
                 setArticle(null);
+				setVersions([]);
+				setSelectedVersion(null);
                 setError('');
                 setLoading(false);
                 return;
@@ -23,7 +27,20 @@ export default function ArticleView({ id, totalCount = 0, refreshKey = 0 }) {
 				const res = await fetch(`/api/articles/${id}`);
 				if (!res.ok) throw new Error('Failed to fetch');
 				const data = await res.json();
-				if (!ignore) setArticle(data);
+				if (!ignore) {
+					setArticle(data);
+					setSelectedVersion(null);
+				}
+
+				try {
+					const versionsRes = await fetch(`/api/articles/${id}/versions`);
+					if (versionsRes.ok) {
+						const versionsData = await versionsRes.json();
+						if (!ignore) setVersions(versionsData);
+					}
+				} catch (e) {
+					console.warn('Could not load versions:', e);
+				}
 			} catch (e) {
 				if (!ignore) setError('Could not load the article.');
 			} finally {
@@ -33,6 +50,47 @@ export default function ArticleView({ id, totalCount = 0, refreshKey = 0 }) {
 		load();
 		return () => { ignore = true; };
 	}, [id, refreshKey]);
+
+	useEffect(() => {
+		if (!id || selectedVersion === null) return;
+		
+		let ignore = false;
+		async function loadVersion() {
+			setLoading(true);
+			setError('');
+			try {
+				const res = await fetch(`/api/articles/${id}?version=${selectedVersion}`);
+				if (!res.ok) {
+					if (res.status === 404) {
+						if (!ignore) {
+							setSelectedVersion(null);
+							setError('');
+						}
+						return;
+					}
+					throw new Error('Failed to fetch version');
+				}
+				const data = await res.json();
+				if (!ignore) {
+					setArticle(data);
+					setError('');
+				}
+			} catch (e) {
+				if (!ignore) {
+					if (e.message && !e.message.includes('404')) {
+						setError('Could not load the version.');
+					} else {
+						setSelectedVersion(null);
+						setError('');
+					}
+				}
+			} finally {
+				if (!ignore) setLoading(false);
+			}
+		}
+		loadVersion();
+		return () => { ignore = true; };
+	}, [id, selectedVersion]);
 
 	const handleAttachmentClick = (attachment) => {
 		const url = `/api/attachments/${attachment.filename}`;
@@ -51,6 +109,13 @@ export default function ArticleView({ id, totalCount = 0, refreshKey = 0 }) {
 		return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 	};
 
+	const handleVersionChange = (e) => {
+		const version = e.target.value === 'current' ? null : parseInt(e.target.value, 10);
+		setSelectedVersion(version);
+	};
+
+	const isViewingVersion = article?.isVersion === true;
+
 	return (
 		<div className="card">
 			{!id && (totalCount === 0 ? (
@@ -62,6 +127,36 @@ export default function ArticleView({ id, totalCount = 0, refreshKey = 0 }) {
             {error && <div className="error-text">{error}</div>}
             {id && article && (
 				<div>
+					{versions.length > 0 && (
+						<div className="version-section">
+							<div className="version-header">
+								<label htmlFor="version-select" style={{ marginRight: '8px', fontWeight: '500' }}>
+									Version:
+								</label>
+								<select
+									id="version-select"
+									className="version-select"
+									value={selectedVersion === null ? 'current' : selectedVersion}
+									onChange={handleVersionChange}
+								>
+									<option value="current">
+										Current (v{article.currentVersion || versions.length + 1})
+									</option>
+									{versions.map((v) => (
+										<option key={v.id} value={v.versionNumber}>
+											Version {v.versionNumber} - {new Date(v.createdAt).toLocaleString()}
+										</option>
+									))}
+								</select>
+							</div>
+							{isViewingVersion && (
+								<div className="version-warning">
+									⚠️ You are viewing an old version (v{article.versionNumber}). This version is read-only.
+								</div>
+							)}
+						</div>
+					)}
+
 					{article.attachments && article.attachments.length > 0 && (
 						<div className="attachments-section">
 							<div className="attachments-header">
@@ -89,7 +184,10 @@ export default function ArticleView({ id, totalCount = 0, refreshKey = 0 }) {
 						articleId={id} 
 						comments={article.comments || []}
 						onCommentAdded={() => {
-							fetch(`/api/articles/${id}`)
+							const url = selectedVersion === null 
+								? `/api/articles/${id}`
+								: `/api/articles/${id}?version=${selectedVersion}`;
+							fetch(url)
 								.then(res => res.json())
 								.then(data => setArticle(data))
 								.catch(err => console.error('Failed to refresh comments:', err));

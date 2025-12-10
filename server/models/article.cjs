@@ -26,6 +26,7 @@ module.exports = (sequelize, DataTypes) => {
   Article.associate = (models) => {
     Article.hasMany(models.Attachment, { foreignKey: 'articleId' });
     Article.hasMany(models.Comment, { foreignKey: 'articleId' });
+    Article.hasMany(models.ArticleVersion, { foreignKey: 'articleId', onDelete: 'CASCADE' });
     Article.belongsTo(models.Workspace, { foreignKey: 'workspaceId', targetKey: 'id' });
   };
 

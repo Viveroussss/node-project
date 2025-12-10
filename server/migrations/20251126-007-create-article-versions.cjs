@@ -2,7 +2,7 @@
 
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    await queryInterface.createTable('attachments', {
+    await queryInterface.createTable('article_versions', {
       id: {
         type: Sequelize.STRING,
         allowNull: false,
@@ -10,31 +10,29 @@ module.exports = {
       },
       articleId: {
         type: Sequelize.STRING,
-        allowNull: false
+        allowNull: false,
+        references: {
+          model: 'articles',
+          key: 'id'
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'CASCADE'
       },
-      filename: {
-        type: Sequelize.STRING,
-        allowNull: false
-      },
-      originalName: {
-        type: Sequelize.STRING,
-        allowNull: true
-      },
-      mimetype: {
-        type: Sequelize.STRING,
-        allowNull: true
-      },
-      size: {
+      versionNumber: {
         type: Sequelize.INTEGER,
-        allowNull: true
+        allowNull: false
       },
-      path: {
+      title: {
         type: Sequelize.STRING,
         allowNull: false
       },
-      uploadedAt: {
-        type: Sequelize.DATE,
+      content: {
+        type: Sequelize.TEXT,
         allowNull: false
+      },
+      workspaceId: {
+        type: Sequelize.STRING,
+        allowNull: true
       },
       createdAt: {
         allowNull: false,
@@ -48,10 +46,14 @@ module.exports = {
       }
     });
 
-    await queryInterface.addIndex('attachments', ['articleId']);
+    // Create index for faster lookups
+    await queryInterface.addIndex('article_versions', ['articleId', 'versionNumber'], {
+      unique: true,
+      name: 'article_versions_article_version_unique'
+    });
   },
-
   down: async (queryInterface, Sequelize) => {
-    await queryInterface.dropTable('attachments');
+    await queryInterface.dropTable('article_versions');
   }
 };
+
