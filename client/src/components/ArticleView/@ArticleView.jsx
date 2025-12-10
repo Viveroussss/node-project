@@ -57,13 +57,33 @@ export default function ArticleView({ id, totalCount = 0, refreshKey = 0, onEdit
 		let ignore = false;
 		async function loadVersion() {
 			setLoading(true);
+			setError('');
 			try {
 				const res = await fetch(`/api/articles/${id}?version=${selectedVersion}`);
-				if (!res.ok) throw new Error('Failed to fetch version');
+				if (!res.ok) {
+					if (res.status === 404) {
+						if (!ignore) {
+							setSelectedVersion(null);
+							setError('');
+						}
+						return;
+					}
+					throw new Error('Failed to fetch version');
+				}
 				const data = await res.json();
-				if (!ignore) setArticle(data);
+				if (!ignore) {
+					setArticle(data);
+					setError('');
+				}
 			} catch (e) {
-				if (!ignore) setError('Could not load the version.');
+				if (!ignore) {
+					if (e.message && !e.message.includes('404')) {
+						setError('Could not load the version.');
+					} else {
+						setSelectedVersion(null);
+						setError('');
+					}
+				}
 			} finally {
 				if (!ignore) setLoading(false);
 			}
@@ -107,7 +127,7 @@ export default function ArticleView({ id, totalCount = 0, refreshKey = 0, onEdit
             {error && <div className="error-text">{error}</div>}
             {id && article && (
 				<div>
-					{(versions.length > 0 || article.currentVersion) && (
+					{versions.length > 0 && (
 						<div className="version-section">
 							<div className="version-header">
 								<label htmlFor="version-select" style={{ marginRight: '8px', fontWeight: '500' }}>

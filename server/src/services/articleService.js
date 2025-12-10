@@ -92,7 +92,7 @@ export async function readArticleById(id, versionNumber = null) {
 			
 			const versions = await versionService.getVersionsByArticleId(id).catch(() => []);
 			obj.versionCount = versions.length;
-			obj.currentVersion = versions.length + 1;
+			obj.currentVersion = versions.length > 0 ? versions.length + 1 : 1;
 			
 			const atts = await Attachment.findAll({ where: { articleId: id } }).catch(() => []);
 			obj.attachments = atts.map(a => ({
@@ -180,7 +180,7 @@ export async function updateArticle(id, { title, content, workspaceId }) {
 		
 		const versions = await versionService.getVersionsByArticleId(id).catch(() => []);
 		obj.versionCount = versions.length;
-		obj.currentVersion = versions.length + 1;
+		obj.currentVersion = versions.length > 0 ? versions.length + 1 : 1;
 		
 		return obj;
 	});
