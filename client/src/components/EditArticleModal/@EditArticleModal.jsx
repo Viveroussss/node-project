@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import QuillEditor from '../QuillEditor/QuillEditor.jsx';
 import './EditArticleModal.css';
 import Button from '../Button/@Button.jsx';
 import { authService } from '../../services/authService.js';
@@ -182,9 +181,8 @@ export default function EditArticleModal({ article, onClose, onSaved, workspaces
 					)}
                     <div>
                         <span className="field-label">Content</span>
-                        <ReactQuill
+                        <QuillEditor
                             className="quill"
-                            theme="snow"
                             value={content}
                             onChange={setContent}
                             onBlur={() => setContentTouched(true)}

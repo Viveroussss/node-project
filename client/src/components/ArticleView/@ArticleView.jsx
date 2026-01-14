@@ -75,14 +75,18 @@ export default function ArticleView({ id, totalCount = 0, refreshKey = 0, onEdit
 	}, [id, refreshKey]);
 
 	useEffect(() => {
-		if (!id || selectedVersion === null) return;
+		if (!id) return;
 		
 		let ignore = false;
 		async function loadVersion() {
 			setLoading(true);
 			setError('');
 			try {
-				const res = await fetch(`${API_BASE_URL}/api/articles/${id}?version=${selectedVersion}`, {
+				const url = selectedVersion === null 
+					? `${API_BASE_URL}/api/articles/${id}`
+					: `${API_BASE_URL}/api/articles/${id}?version=${selectedVersion}`;
+				
+				const res = await fetch(url, {
 					headers: authService.getAuthHeader()
 				});
 				if (!res.ok) {

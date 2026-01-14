@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import QuillEditor from '../QuillEditor/QuillEditor.jsx';
 import './NewArticleForm.css';
 import Button from '../Button/@Button.jsx';
 import { authService } from '../../services/authService.js';
@@ -221,9 +220,8 @@ export default function NewArticleForm({ onCreated, onClose, workspaces = [], se
 					)}
                     <div>
                         <span className="field-label">Content</span>
-                        <ReactQuill
+                        <QuillEditor
                             className="quill"
-                            theme="snow"
                             value={content}
                             onChange={handleContentChange}
                             onBlur={() => setContentTouched(true)}
