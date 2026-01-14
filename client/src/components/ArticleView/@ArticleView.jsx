@@ -2,6 +2,11 @@ import React, { useEffect, useState } from 'react';
 import './ArticleView.css';
 import Button from '../Button/@Button.jsx';
 import Comments from '../Comments/@Comments.jsx';
+import { authService } from '../../services/authService.js';
+import { useAuth } from '../../contexts/AuthContext.jsx';
+import { useNavigate } from 'react-router-dom';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : 'http://localhost:3001');
 
 export default function ArticleView({ id, totalCount = 0, refreshKey = 0, onEdit }) {
 	const [article, setArticle] = useState(null);
@@ -9,6 +14,8 @@ export default function ArticleView({ id, totalCount = 0, refreshKey = 0, onEdit
 	const [selectedVersion, setSelectedVersion] = useState(null);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState('');
+	const { logout } = useAuth();
+	const navigate = useNavigate();
 
 	useEffect(() => {
 		let ignore = false;
@@ -24,8 +31,17 @@ export default function ArticleView({ id, totalCount = 0, refreshKey = 0, onEdit
 			setLoading(true);
 			setError('');
 			try {
-				const res = await fetch(`/api/articles/${id}`);
-				if (!res.ok) throw new Error('Failed to fetch');
+				const res = await fetch(`${API_BASE_URL}/api/articles/${id}`, {
+					headers: authService.getAuthHeader()
+				});
+				if (!res.ok) {
+					if (res.status === 401 || res.status === 403) {
+						logout();
+						navigate('/login');
+						return;
+					}
+					throw new Error('Failed to fetch');
+				}
 				const data = await res.json();
 				if (!ignore) {
 					setArticle(data);
@@ -33,7 +49,14 @@ export default function ArticleView({ id, totalCount = 0, refreshKey = 0, onEdit
 				}
 
 				try {
-					const versionsRes = await fetch(`/api/articles/${id}/versions`);
+					const versionsRes = await fetch(`${API_BASE_URL}/api/articles/${id}/versions`, {
+						headers: authService.getAuthHeader()
+					});
+					if (versionsRes.status === 401 || versionsRes.status === 403) {
+						logout();
+						navigate('/login');
+						return;
+					}
 					if (versionsRes.ok) {
 						const versionsData = await versionsRes.json();
 						if (!ignore) setVersions(versionsData);
@@ -59,8 +82,15 @@ export default function ArticleView({ id, totalCount = 0, refreshKey = 0, onEdit
 			setLoading(true);
 			setError('');
 			try {
-				const res = await fetch(`/api/articles/${id}?version=${selectedVersion}`);
+				const res = await fetch(`${API_BASE_URL}/api/articles/${id}?version=${selectedVersion}`, {
+					headers: authService.getAuthHeader()
+				});
 				if (!res.ok) {
+					if (res.status === 401 || res.status === 403) {
+						logout();
+						navigate('/login');
+						return;
+					}
 					if (res.status === 404) {
 						if (!ignore) {
 							setSelectedVersion(null);
@@ -92,14 +122,38 @@ export default function ArticleView({ id, totalCount = 0, refreshKey = 0, onEdit
 		return () => { ignore = true; };
 	}, [id, selectedVersion]);
 
-	const handleAttachmentClick = (attachment) => {
-		const url = `/api/attachments/${attachment.filename}`;
-		if (attachment.mimetype.startsWith('image/')) {
-			window.open(url, '_blank');
-		} else if (attachment.mimetype === 'application/pdf') {
-			window.open(url, '_blank');
-		} else {
-			window.open(url, '_blank');
+	const handleAttachmentClick = async (attachment) => {
+		try {
+			const token = authService.getToken();
+			if (!token) {
+				logout();
+				navigate('/login');
+				return;
+			}
+			
+			const url = `${API_BASE_URL}/api/attachments/${attachment.filename}`;
+			const res = await fetch(url, {
+				headers: authService.getAuthHeader()
+			});
+			
+			if (res.status === 401 || res.status === 403) {
+				logout();
+				navigate('/login');
+				return;
+			}
+			
+			if (!res.ok) {
+				throw new Error('Failed to load attachment');
+			}
+			
+			const blob = await res.blob();
+			const blobUrl = URL.createObjectURL(blob);
+			window.open(blobUrl, '_blank');
+			
+			setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+		} catch (e) {
+			console.error('Failed to open attachment:', e);
+			alert('Failed to open attachment. Please try again.');
 		}
 	};
 
@@ -185,11 +239,22 @@ export default function ArticleView({ id, totalCount = 0, refreshKey = 0, onEdit
 						comments={article.comments || []}
 						onCommentAdded={() => {
 							const url = selectedVersion === null 
-								? `/api/articles/${id}`
-								: `/api/articles/${id}?version=${selectedVersion}`;
-							fetch(url)
-								.then(res => res.json())
-								.then(data => setArticle(data))
+								? `${API_BASE_URL}/api/articles/${id}`
+								: `${API_BASE_URL}/api/articles/${id}?version=${selectedVersion}`;
+							fetch(url, {
+								headers: authService.getAuthHeader()
+							})
+								.then(res => {
+									if (res.status === 401 || res.status === 403) {
+										logout();
+										navigate('/login');
+										return null;
+									}
+									return res.json();
+								})
+								.then(data => {
+									if (data) setArticle(data);
+								})
 								.catch(err => console.error('Failed to refresh comments:', err));
 						}}
 					/>

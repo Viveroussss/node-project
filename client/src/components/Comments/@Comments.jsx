@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
 import './Comments.css';
 import Button from '../Button/@Button.jsx';
+import { authService } from '../../services/authService.js';
+import { useAuth } from '../../contexts/AuthContext.jsx';
+import { useNavigate } from 'react-router-dom';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : 'http://localhost:3001');
 
 export default function Comments({ articleId, comments = [], onCommentAdded }) {
 	const [newComment, setNewComment] = useState('');
 	const [author, setAuthor] = useState('');
 	const [submitting, setSubmitting] = useState(false);
 	const [error, setError] = useState('');
+	const { logout } = useAuth();
+	const navigate = useNavigate();
 
 	async function handleSubmit(e) {
 		e?.preventDefault?.();
@@ -17,15 +24,23 @@ export default function Comments({ articleId, comments = [], onCommentAdded }) {
 		setSubmitting(true);
 		setError('');
 		try {
-			const res = await fetch(`/api/articles/${articleId}/comments`, {
+			const res = await fetch(`${API_BASE_URL}/api/articles/${articleId}/comments`, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: { 
+					'Content-Type': 'application/json',
+					...authService.getAuthHeader()
+				},
 				body: JSON.stringify({
 					content: newComment.trim(),
 					author: author.trim() || 'Anonymous'
 				})
 			});
 			if (!res.ok) {
+				if (res.status === 401 || res.status === 403) {
+					logout();
+					navigate('/login');
+					return;
+				}
 				const msg = await res.json().catch(() => ({}));
 				throw new Error(msg.error || 'Failed to add comment');
 			}

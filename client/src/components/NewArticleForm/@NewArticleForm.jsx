@@ -3,6 +3,11 @@ import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css';
 import './NewArticleForm.css';
 import Button from '../Button/@Button.jsx';
+import { authService } from '../../services/authService.js';
+import { useAuth } from '../../contexts/AuthContext.jsx';
+import { useNavigate } from 'react-router-dom';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : 'http://localhost:3001');
 
 function isHtmlEffectivelyEmpty(html) {
 	if (typeof html !== 'string') return true;
@@ -23,6 +28,8 @@ export default function NewArticleForm({ onCreated, onClose, workspaces = [], se
 	const [uploading, setUploading] = useState(false);
 	const [uploadError, setUploadError] = useState('');
 	const [success, setSuccess] = useState('');
+	const { logout } = useAuth();
+	const navigate = useNavigate();
 
 	const [titleTouched, setTitleTouched] = useState(false);
 	const [contentTouched, setContentTouched] = useState(false);
@@ -106,12 +113,20 @@ export default function NewArticleForm({ onCreated, onClose, workspaces = [], se
 		setSubmitting(true);
 		try {
 			const payload = { title: title.trim(), content, workspaceId: workspaceId || null };
-			const res = await fetch('/api/articles', {
+			const res = await fetch(`${API_BASE_URL}/api/articles`, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
+				headers: { 
+					'Content-Type': 'application/json',
+					...authService.getAuthHeader()
+				},
 				body: JSON.stringify(payload)
 			});
 			if (!res.ok) {
+				if (res.status === 401 || res.status === 403) {
+					logout();
+					navigate('/login');
+					return;
+				}
 				const msg = await res.json().catch(() => ({}));
 				throw new Error(msg.error || `Failed to create (${res.status})`);
 			}
@@ -123,12 +138,18 @@ export default function NewArticleForm({ onCreated, onClose, workspaces = [], se
 					const formData = new FormData();
 					pendingFiles.forEach(file => formData.append('files', file));
 
-					const uploadRes = await fetch(`/api/articles/${created.id}/attachments`, {
+					const uploadRes = await fetch(`${API_BASE_URL}/api/articles/${created.id}/attachments`, {
 						method: 'POST',
+						headers: authService.getAuthHeader(),
 						body: formData
 					});
 
 					if (!uploadRes.ok) {
+						if (uploadRes.status === 401 || uploadRes.status === 403) {
+							logout();
+							navigate('/login');
+							return;
+						}
 						const msg = await uploadRes.json().catch(() => ({}));
 						throw new Error(msg.error || 'Failed to upload files');
 					}

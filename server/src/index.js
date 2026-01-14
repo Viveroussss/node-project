@@ -11,6 +11,7 @@ import articleRoutes from './routes/articleRoutes.js';
 import workspaceRoutes from './routes/workspaceRoutes.js';
 import commentRoutes from './routes/commentRoutes.js';
 import attachmentRoutes from './routes/attachmentRoutes.js';
+import authRoutes from './routes/authRoutes.js';
 
 const app = express();
 const server = createServer(app);
@@ -20,9 +21,7 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 app.use(morgan('dev'));
-app.use('/api/attachments', express.static(attachmentsDir));
 
-// Health check endpoints
 app.get('/health', (_req, res) => {
 	res.json({ ok: true });
 });
@@ -31,13 +30,12 @@ app.get('/api/health', (_req, res) => {
 	res.json({ ok: true });
 });
 
-// API Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/articles', articleRoutes);
 app.use('/api/workspaces', workspaceRoutes);
 app.use('/api', commentRoutes);
 app.use('/api', attachmentRoutes);
 
-// Database connection and server startup
 connectDatabase()
 	.finally(() => {
 		const maxRetries = 10;

@@ -13,13 +13,16 @@
     "db:import": "node scripts/import-json-to-db.cjs"
   },
   "dependencies": {
-    "pg": "^8.11.0",
-    "sequelize": "^6.32.1",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.3",
     "morgan": "^1.10.0",
     "multer": "^2.0.2",
     "nanoid": "^5.0.7",
+    "pg": "^8.11.0",
+    "react-router-dom": "^7.12.0",
+    "sequelize": "^6.32.1",
     "ws": "^8.18.3"
   },
   "devDependencies": {
@@ -27,5 +30,3 @@
     "sequelize-cli": "^6.6.0"
   }
 }
-
-

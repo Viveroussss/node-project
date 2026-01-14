@@ -8,3 +8,4 @@ export function isHtmlEffectivelyEmpty(html) {
 	return text.length === 0;
 }
 
+
