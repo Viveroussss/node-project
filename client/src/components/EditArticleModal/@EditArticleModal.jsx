@@ -1,8 +1,12 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import QuillEditor from '../QuillEditor/QuillEditor.jsx';
 import './EditArticleModal.css';
 import Button from '../Button/@Button.jsx';
+import { authService } from '../../services/authService.js';
+import { useAuth } from '../../contexts/AuthContext.jsx';
+import { useNavigate } from 'react-router-dom';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.DEV ? '' : 'http://localhost:3001');
 
 function isHtmlEffectivelyEmpty(html) {
 	if (typeof html !== 'string') return true;
@@ -24,6 +28,8 @@ export default function EditArticleModal({ article, onClose, onSaved, workspaces
 	const [uploadError, setUploadError] = useState('');
     const [contentTouched, setContentTouched] = useState(false);
     const [submitAttempted, setSubmitAttempted] = useState(false);
+	const { logout } = useAuth();
+	const navigate = useNavigate();
 
 	useEffect(() => {
 		setTitle(article?.title ?? '');
@@ -60,12 +66,18 @@ export default function EditArticleModal({ article, onClose, onSaved, workspaces
 			const formData = new FormData();
 			files.forEach(file => formData.append('files', file));
 
-			const res = await fetch(`/api/articles/${article.id}/attachments`, {
+			const res = await fetch(`${API_BASE_URL}/api/articles/${article.id}/attachments`, {
 				method: 'POST',
+				headers: authService.getAuthHeader(),
 				body: formData
 			});
 
 			if (!res.ok) {
+				if (res.status === 401 || res.status === 403) {
+					logout();
+					navigate('/login');
+					return;
+				}
 				const msg = await res.json().catch(() => ({}));
 				throw new Error(msg.error || 'Failed to upload files');
 			}
@@ -83,10 +95,16 @@ export default function EditArticleModal({ article, onClose, onSaved, workspaces
 	async function handleDeleteAttachment(attachmentId) {
 		if (!confirm('Delete this attachment?')) return;
 		try {
-			const res = await fetch(`/api/articles/${article.id}/attachments/${attachmentId}`, {
-				method: 'DELETE'
+			const res = await fetch(`${API_BASE_URL}/api/articles/${article.id}/attachments/${attachmentId}`, {
+				method: 'DELETE',
+				headers: authService.getAuthHeader()
 			});
 			if (!res.ok) {
+				if (res.status === 401 || res.status === 403) {
+					logout();
+					navigate('/login');
+					return;
+				}
 				const msg = await res.json().catch(() => ({}));
 				throw new Error(msg.error || 'Failed to delete attachment');
 			}
@@ -108,12 +126,20 @@ export default function EditArticleModal({ article, onClose, onSaved, workspaces
 		if (!isValid) return;
 		setSaving(true);
 		try {
-			const res = await fetch(`/api/articles/${article.id}`, {
+			const res = await fetch(`${API_BASE_URL}/api/articles/${article.id}`, {
 				method: 'PUT',
-				headers: { 'Content-Type': 'application/json' },
+				headers: { 
+					'Content-Type': 'application/json',
+					...authService.getAuthHeader()
+				},
 				body: JSON.stringify({ title: title.trim(), content, workspaceId: workspaceId || null, attachments })
 			});
 			if (!res.ok) {
+				if (res.status === 401 || res.status === 403) {
+					logout();
+					navigate('/login');
+					return;
+				}
 				const msg = await res.json().catch(() => ({}));
 				throw new Error(msg.error || `Failed to update (${res.status})`);
 			}
@@ -155,9 +181,8 @@ export default function EditArticleModal({ article, onClose, onSaved, workspaces
 					)}
                     <div>
                         <span className="field-label">Content</span>
-                        <ReactQuill
+                        <QuillEditor
                             className="quill"
-                            theme="snow"
                             value={content}
                             onChange={setContent}
                             onBlur={() => setContentTouched(true)}

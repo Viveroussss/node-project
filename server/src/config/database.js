@@ -8,7 +8,7 @@ const currentDir = path.dirname(currentFileUrl);
 const requireC = createRequire(import.meta.url);
 const db = requireC(path.join(currentDir, '..', '..', 'models', 'index.cjs'));
 
-export const { sequelize, Article, Attachment, Comment, Workspace, ArticleVersion } = db;
+export const { sequelize, Article, Attachment, Comment, Workspace, ArticleVersion, User } = db;
 
 export async function connectDatabase() {
 	try {

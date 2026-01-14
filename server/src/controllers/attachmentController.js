@@ -3,6 +3,7 @@ import * as articleService from '../services/articleService.js';
 import { broadcastNotification } from '../utils/websocket.js';
 import { handleDatabaseError } from '../middleware/errorHandler.js';
 import fs from 'fs';
+import path from 'path';
 
 export async function uploadAttachments(req, res) {
 	try {
@@ -78,4 +79,33 @@ export async function deleteAttachment(req, res) {
 		handleDatabaseError(err, res, 'Failed to delete attachment');
 	}
 }
+
+export async function serveAttachment(req, res) {
+	try {
+		const { filename } = req.params;
+		const { Attachment } = await import('../config/database.js');
+		
+		const attachment = await Attachment.findOne({ where: { filename } });
+		if (!attachment) {
+			return res.status(404).json({ error: 'Attachment not found' });
+		}
+		
+		const { attachmentsDir } = await import('../config/paths.js');
+		const filePath = path.join(attachmentsDir, filename);
+		
+		if (!fs.existsSync(filePath)) {
+			return res.status(404).json({ error: 'File not found' });
+		}
+		
+		res.setHeader('Content-Type', attachment.mimetype);
+		res.setHeader('Content-Disposition', `inline; filename="${attachment.originalName}"`);
+		
+		const fileStream = fs.createReadStream(filePath);
+		fileStream.pipe(res);
+	} catch (err) {
+		console.error('Error serving attachment:', err);
+		res.status(500).json({ error: 'Failed to serve attachment' });
+	}
+}
+
 
