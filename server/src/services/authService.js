@@ -19,12 +19,12 @@ export async function registerUser({ email, password }) {
 	});
 
 	const token = jwt.sign(
-		{ userId: user.id, email: user.email },
+		{ userId: user.id, email: user.email, role: user.role },
 		JWT_SECRET,
 		{ expiresIn: JWT_EXPIRES_IN }
 	);
 
-	return { user: { id: user.id, email: user.email }, token };
+	return { user: { id: user.id, email: user.email, role: user.role }, token };
 }
 
 export async function loginUser({ email, password }) {
@@ -39,12 +39,12 @@ export async function loginUser({ email, password }) {
 	}
 
 	const token = jwt.sign(
-		{ userId: user.id, email: user.email },
+		{ userId: user.id, email: user.email, role: user.role },
 		JWT_SECRET,
 		{ expiresIn: JWT_EXPIRES_IN }
 	);
 
-	return { user: { id: user.id, email: user.email }, token };
+	return { user: { id: user.id, email: user.email, role: user.role }, token };
 }
 
 export function verifyToken(token) {
@@ -57,7 +57,7 @@ export function verifyToken(token) {
 
 export async function getUserById(userId) {
 	return User.findByPk(userId, {
-		attributes: ['id', 'email', 'createdAt', 'updatedAt']
+		attributes: ['id', 'email', 'role', 'createdAt', 'updatedAt']
 	});
 }
 

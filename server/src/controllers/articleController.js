@@ -35,7 +35,8 @@ export async function createArticle(req, res) {
 		const created = await articleService.saveArticle({ 
 			title: title.trim(), 
 			content, 
-			workspaceId: workspaceId || null 
+			workspaceId: workspaceId || null,
+			userId: req.user.userId
 		});
 		
 		broadcastNotification({

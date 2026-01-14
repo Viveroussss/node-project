@@ -205,6 +205,15 @@ export default function Logic() {
 				<div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
 					<h2 className="header-title">Articles</h2>
 					<div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+						{user?.role === 'admin' && (
+							<Button 
+								variant="secondary" 
+								onClick={() => navigate('/users')}
+								style={{ background: 'rgba(255,255,255,0.2)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.3)' }}
+							>
+								User Management
+							</Button>
+						)}
 						<span style={{ color: '#ffffff', fontSize: '14px' }}>{user?.email}</span>
 						<Button variant="secondary" onClick={handleLogout} style={{ background: 'rgba(255,255,255,0.2)', color: '#ffffff', border: '1px solid rgba(255,255,255,0.3)' }}>
 							Logout
@@ -269,7 +278,7 @@ export default function Logic() {
 						<div className="footer">{articles.length} article(s)</div>
 					</div>
 					<div className="grid-stack">
-						<ArticleView key={articleRefreshKey} id={selectedId} totalCount={articles.length} />
+						<ArticleView key={articleRefreshKey} id={selectedId} totalCount={articles.length} onEdit={openEdit} />
 					</div>
 				</div>
 			</div>

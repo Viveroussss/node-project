@@ -10,6 +10,9 @@ export function authenticateToken(req, res, next) {
 
 	try {
 		const decoded = verifyToken(token);
+		if (!decoded.role) {
+			decoded.role = 'user';
+		}
 		req.user = decoded;
 		next();
 	} catch (err) {

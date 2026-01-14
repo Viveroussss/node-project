@@ -17,6 +17,14 @@ module.exports = (sequelize, DataTypes) => {
     workspaceId: {
       type: DataTypes.STRING,
       allowNull: true
+    },
+    userId: {
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: 'users',
+        key: 'id'
+      }
     }
   }, {
     tableName: 'articles',
@@ -28,6 +36,7 @@ module.exports = (sequelize, DataTypes) => {
     Article.hasMany(models.Comment, { foreignKey: 'articleId' });
     Article.hasMany(models.ArticleVersion, { foreignKey: 'articleId', onDelete: 'CASCADE' });
     Article.belongsTo(models.Workspace, { foreignKey: 'workspaceId', targetKey: 'id' });
+    Article.belongsTo(models.User, { foreignKey: 'userId', targetKey: 'id' });
   };
 
   return Article;

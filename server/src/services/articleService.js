@@ -9,7 +9,7 @@ import { attachmentsDir, dataDir } from '../config/paths.js';
 export async function readAllArticlesMeta(workspaceId = null) {
 	const where = workspaceId ? { workspaceId } : {};
 	return Article.findAll({ 
-		attributes: ['id', 'title', 'createdAt', 'workspaceId'], 
+		attributes: ['id', 'title', 'createdAt', 'workspaceId', 'userId'], 
 		where,
 		order: [['createdAt', 'DESC']] 
 	})
@@ -17,7 +17,8 @@ export async function readAllArticlesMeta(workspaceId = null) {
 			id: r.id, 
 			title: r.title, 
 			createdAt: r.createdAt, 
-			workspaceId: r.workspaceId 
+			workspaceId: r.workspaceId,
+			userId: r.userId
 		})))
 		.catch(() => {
 			if (!fs.existsSync(dataDir)) return [];
@@ -121,8 +122,8 @@ export async function readArticleById(id, versionNumber = null) {
 		});
 }
 
-export async function saveArticle({ title, content, workspaceId = null }) {
-	return Article.create({ id: nanoid(12), title, content, workspaceId })
+export async function saveArticle({ title, content, workspaceId = null, userId = null }) {
+	return Article.create({ id: nanoid(12), title, content, workspaceId, userId })
 		.then(created => {
 			const obj = created.toJSON();
 			obj.attachments = [];
