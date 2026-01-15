@@ -3,6 +3,7 @@ import * as articleController from '../controllers/articleController.js';
 import * as versionController from '../controllers/versionController.js';
 import { validateArticle } from '../middleware/validation.js';
 import { authenticateToken } from '../middleware/auth.js';
+import { requireArticleOwnerOrAdmin } from '../middleware/rbac.js';
 
 const router = express.Router();
 
@@ -13,8 +14,8 @@ router.get('/:id/versions', versionController.getArticleVersions);
 router.get('/:id/versions/:version', versionController.getArticleVersion);
 router.get('/:id', articleController.getArticleById);
 router.post('/', validateArticle, articleController.createArticle);
-router.put('/:id', validateArticle, articleController.updateArticle);
-router.delete('/:id', articleController.deleteArticle);
+router.put('/:id', validateArticle, requireArticleOwnerOrAdmin, articleController.updateArticle);
+router.delete('/:id', requireArticleOwnerOrAdmin, articleController.deleteArticle);
 
 export default router;
 

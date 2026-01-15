@@ -12,6 +12,7 @@ import workspaceRoutes from './routes/workspaceRoutes.js';
 import commentRoutes from './routes/commentRoutes.js';
 import attachmentRoutes from './routes/attachmentRoutes.js';
 import authRoutes from './routes/authRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 
 const app = express();
 const server = createServer(app);
@@ -35,6 +36,7 @@ app.use('/api/articles', articleRoutes);
 app.use('/api/workspaces', workspaceRoutes);
 app.use('/api', commentRoutes);
 app.use('/api', attachmentRoutes);
+app.use('/api/users', userRoutes);
 
 connectDatabase()
 	.finally(() => {

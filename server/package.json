@@ -10,7 +10,8 @@
     "db:migrate": "npx sequelize-cli db:migrate --config ./config/config.cjs",
     "db:migrate:undo": "npx sequelize-cli db:migrate:undo --config ./config/config.cjs",
     "db:seed": "node scripts/seed-workspaces.cjs",
-    "db:import": "node scripts/import-json-to-db.cjs"
+    "db:import": "node scripts/import-json-to-db.cjs",
+    "make-admin": "node scripts/make-admin.cjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

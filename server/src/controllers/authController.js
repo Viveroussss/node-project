@@ -47,7 +47,11 @@ export async function getCurrentUser(req, res) {
 		if (!user) {
 			return res.status(404).json({ error: 'User not found' });
 		}
-		res.json({ user });
+		const userData = user.toJSON ? user.toJSON() : user;
+		if (!userData.role) {
+			userData.role = 'user';
+		}
+		res.json({ user: userData });
 	} catch (err) {
 		handleDatabaseError(err, res, 'Failed to get user');
 	}

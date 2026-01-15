@@ -147,6 +147,33 @@ npm run db:migrate:undo
 npm run db:seed
 ```
 
+### User Management
+
+#### Making a User an Admin
+
+To grant admin privileges to a user, use the `make-admin` script:
+
+```bash
+cd server
+
+# List all users
+npm run make-admin
+
+# Make a specific user an admin
+npm run make-admin <email>
+
+# Example
+npm run make-admin user@example.com
+```
+
+**Note:** After making a user an admin, they need to log out and log back in for the changes to take effect (to receive a new JWT token with the updated role).
+
+Admin users can:
+- Access the User Management page
+- Edit any article (not just their own)
+- Delete any article (not just their own)
+- Manage user roles through the User Management interface
+
 ## Technologies
 
 - **Frontend**: React, Vite, ReactQuill

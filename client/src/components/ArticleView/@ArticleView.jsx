@@ -14,8 +14,14 @@ export default function ArticleView({ id, totalCount = 0, refreshKey = 0, onEdit
 	const [selectedVersion, setSelectedVersion] = useState(null);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState('');
-	const { logout } = useAuth();
+	const { logout, user } = useAuth();
 	const navigate = useNavigate();
+
+	const canEdit = () => {
+		if (!user || !article) return false;
+		if (article.isVersion === true) return false;
+		return user.role === 'admin' || article.userId === user.id;
+	};
 
 	useEffect(() => {
 		let ignore = false;
@@ -172,6 +178,12 @@ export default function ArticleView({ id, totalCount = 0, refreshKey = 0, onEdit
 		setSelectedVersion(version);
 	};
 
+	const handleEdit = () => {
+		if (onEdit && id) {
+			onEdit(id);
+		}
+	};
+
 	const isViewingVersion = article?.isVersion === true;
 
 	return (
@@ -235,7 +247,14 @@ export default function ArticleView({ id, totalCount = 0, refreshKey = 0, onEdit
 							</div>
 						</div>
 					)}
-					<h3 className="article-title">{article.title}</h3>
+					<div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+						<h3 className="article-title" style={{ margin: 0 }}>{article.title}</h3>
+						{canEdit() && (
+							<Button onClick={handleEdit} variant="secondary">
+								Edit
+							</Button>
+						)}
+					</div>
 					<div dangerouslySetInnerHTML={{ __html: article.content }} />
 					
 					<Comments 
